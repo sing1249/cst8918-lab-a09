@@ -1,4 +1,5 @@
-name: Validate terraform fmt
+name: Validate terraform fmt and validate
+
 on:
   pull_request:
     branches:
@@ -10,36 +11,60 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  # Job to validate terraform fmt
+  validate_fmt:
     runs-on: ubuntu-latest
     name: terraform fmt check
+    outputs:
+      CHECK_STATUS: "${{ env.CHECK_STATUS }}"
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Required for accurate diffs
-      - name: Get modified Terraform files
-        id: modified_files
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.sha }}:${{ github.event.pull_request.base.ref }}
-          git diff --name-only origin/${{ github.event.pull_request.base.ref }} -- '*.tf' | tr '\n' ' ' | sed 's/ $//' > modified_files.txt
-          echo "MODIFIED_FILES=$(cat modified_files.txt)" >> $GITHUB_ENV
+          fetch-depth: 2
+      - name: Fetch changed files
+        id: pr_files
+        uses: jitterbit/get-changed-files@v1
+        with:
+          format: "space-delimited"
       - name: Configure terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.2.4
-      - name: Validate terraform fmt (modified files)
+      - name: Validate terraform fmt (added_modified)
         run: |
-          set -e
-          if [[ -n "$MODIFIED_FILES" ]]; then
-            for changed_file in $MODIFIED_FILES; do
-              echo "Checking terraform fmt on ${changed_file}..."
+          set +e
+
+          echo "CHECK_STATUS=0" >> $GITHUB_ENV
+
+          for changed_file in ${{ steps.pr_files.outputs.added_modified }}; do
+            echo "Checking terraform fmt on ${changed_file}..."
+
+            if [[ $changed_file == *.tf ]]; then
               terraform fmt -check $changed_file
               FMT_STATUS=$(echo $?)
+
               if [[ $FMT_STATUS -ne 0 ]]; then
                 echo "❌ terraform fmt failed - ${changed_file}" >> $GITHUB_STEP_SUMMARY
-                exit 1 # Exit immediately on failure
+                echo "CHECK_STATUS=1" >> $GITHUB_ENV
               fi
-            done
-          else
-            echo "No modified Terraform files found."
-          fi
+            fi
+          done
+      - name: Process check
+        if: always()
+        run: exit $CHECK_STATUS
+
+  # Job to validate terraform config
+  terraform_validate:
+    runs-on: ubuntu-latest
+    name: Terraform validate
+    needs: validate_fmt # Ensures terraform validate runs after fmt validation
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.2.4
+      - name: Initialize terraform
+        run: terraform init
+      - name: Validate terraform
+        run: terraform validate
