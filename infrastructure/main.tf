@@ -31,10 +31,10 @@ resource "azurerm_resource_group" "rg" {
 }
 
 # Create a new Storage Account in the "cst8918" Resource Group
-resource "azurerm_storage_account" "storage
+resource "azurerm_storage_account" "storage" {
   name                     = "talwindersinghstorage"
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = azurerm_resource_group.rg.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
-
+}
