@@ -17,7 +17,7 @@ terraform {
 
 # Define providers and their config params
 provider "azurerm" {
-    features {}
+  features {}
 }
 
 provider "cloudinit" {
@@ -26,7 +26,7 @@ provider "cloudinit" {
 
 # Resource group "cst8918"
 resource "azurerm_resource_group" "rg" {
-  name = "cst8918"
+  name     = "cst8918"
   location = "Canada Central"
 }
 
