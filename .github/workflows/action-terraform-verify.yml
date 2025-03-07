@@ -16,11 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          fetch-depth: 0 # Required for accurate diffs
       - name: Get modified Terraform files
         id: modified_files
         run: |
-          git diff --name-only HEAD^ HEAD -- '*.tf' | tr '\n' ' ' | sed 's/ $//' > modified_files.txt
+          git fetch origin ${{ github.event.pull_request.base.sha }}:${{ github.event.pull_request.base.ref }}
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }} -- '*.tf' | tr '\n' ' ' | sed 's/ $//' > modified_files.txt
           echo "MODIFIED_FILES=$(cat modified_files.txt)" >> $GITHUB_ENV
       - name: Configure terraform
         uses: hashicorp/setup-terraform@v2
